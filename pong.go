@@ -3,6 +3,7 @@ package main
 /* TODO
  * ai more realistic
  * win screen
+ * player select screen
  */
 
 import (
