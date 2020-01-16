@@ -21,6 +21,7 @@ type gameState int
 const (
 	START gameState = iota
 	PLAY
+	SELECT
 )
 
 var state = START
@@ -277,13 +278,6 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 		state = START
 	}
 
-	/* top -> bot
-	 * | leftPaddle.Y-leftPaddle.Height/2 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 1
-	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 1 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 2
-	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 2 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 3
-	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 3 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 4
-	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 4 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 5
-	 */
 	if ball.X < leftPaddle.X+leftPaddle.Width/2 {
 		if ball.Y > leftPaddle.Y-leftPaddle.Height/2 && ball.Y < leftPaddle.Y+leftPaddle.Height/2 {
 			ball.XVel = -ball.XVel
@@ -369,8 +363,29 @@ func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
 	}
 }
 
-func (paddle *paddle) aiUpdate(ball *ball, elapsedTime float32) {
-	paddle.Y = ball.Y
+func (paddle *paddle) aiUpdate(ball *ball, diff int, elapsedTime float32) {
+	switch diff {
+	case 0:
+		paddle.Y = ball.Y
+	case 1:
+		if paddle.Y < ball.Y {
+			paddle.Y += paddle.Speed * elapsedTime
+		} else if paddle.Y > ball.Y {
+			paddle.Y -= paddle.Speed * elapsedTime
+		}
+	case 2:
+		if paddle.Y < ball.Y-ball.Radius {
+			paddle.Y += paddle.Speed * elapsedTime
+		} else if paddle.Y > ball.Y+ball.Radius {
+			paddle.Y -= paddle.Speed * elapsedTime
+		}
+	case 3:
+		if paddle.Y < ball.Y-ball.Radius {
+			paddle.Y += paddle.Speed / 1.5 * elapsedTime
+		} else if paddle.Y > ball.Y+ball.Radius {
+			paddle.Y -= paddle.Speed / 1.5 * elapsedTime
+		}
+	}
 }
 
 func main() {
@@ -444,10 +459,12 @@ func main() {
 			}
 		}
 
-		if state == PLAY {
-			player1.update(keyState, elapsedTime)
-			// player2.aiUpdate(&ball, elapsedTime) //ai player
-			player2.update(keyState, elapsedTime) // human player
+		switch state {
+		case PLAY:
+			// player1.update(keyState, elapsedTime) // human player
+			// player2.update(keyState, elapsedTime) // human player
+			player1.aiUpdate(&ball, 2, elapsedTime) //ai player
+			player2.aiUpdate(&ball, 2, elapsedTime) //ai player
 			if ball.XVel > 0 {
 				ball.XVel += gameElapsed / 50
 			} else {
@@ -458,7 +475,7 @@ func main() {
 				state = START
 				paused = true
 			}
-		} else if state == START {
+		case START:
 			drawSpace(getCenter(), color{255, 255, 255}, 5, pixels)
 			screenDraw(tex, renderer, frameStart, &elapsedTime, pixels)
 			if keyState[sdl.SCANCODE_SPACE] != 0 {
@@ -473,6 +490,8 @@ func main() {
 				}
 				state = PLAY
 			}
+		case SELECT:
+			//TODO
 		}
 
 		clear(pixels)
