@@ -1,16 +1,14 @@
 package main
 
 /* TODO
- * paddle edge detection
- * 2 player
  * ai more realistic
- * resizing of window
- * load bitmaps
+ * win screen
  */
 
 import (
 	"fmt"
 	"time"
+	"math/rand"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -26,7 +24,7 @@ const (
 
 var state = START
 
-var letters = [][]byte {
+var letters = [][]byte{
 	{
 		1, 1, 1,
 		1, 0, 0,
@@ -64,7 +62,7 @@ var letters = [][]byte {
 	},
 }
 
-var nums = [][]byte {
+var nums = [][]byte{
 	{
 		1, 1, 1,
 		1, 0, 1,
@@ -214,10 +212,10 @@ func drawSpace(pos pos, color color, size int, pixels []byte) {
 			startX += size
 			if (i+1)%3 == 0 {
 				startY += size
-				startX -= size*3
+				startX -= size * 3
 			}
 		}
-		startX += size*3+size
+		startX += size*3 + size
 		startY = int(pos.Y) - (size*5)/2 - (winHeight)/4
 	}
 }
@@ -248,24 +246,61 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 	ball.X += ball.XVel * elapsedTime
 	ball.Y += ball.YVel * elapsedTime
 
-	if ball.Y-ball.Radius < 0 || ball.Y+ball.Radius > float32(winHeight) {
+	if ball.Y-ball.Radius < 0 {
 		ball.YVel = -ball.YVel
+		ball.Y = ball.Radius
+	} else if ball.Y+ball.Radius > float32(winHeight) {
+		ball.YVel = -ball.YVel
+		ball.Y = float32(winHeight) - ball.Radius
 	}
 
 	if ball.X-ball.Radius < 0 {
 		rightPaddle.Score++
+		ball.XVel = -300
+		if rand.Intn(2) > 0 {
+			ball.YVel = float32((rand.Intn(301)))
+		} else {
+			ball.YVel = float32((rand.Intn(301))) * -1
+		}
 		ball.pos = getCenter()
 		state = START
 	} else if ball.X+ball.Radius > float32(winWidth) {
 		leftPaddle.Score++
+		ball.XVel = 300
+		if rand.Intn(2) > 0 {
+			ball.YVel = float32((rand.Intn(301)))
+		} else {
+			ball.YVel = float32((rand.Intn(301))) * -1
+		}
 		ball.pos = getCenter()
 		state = START
 	}
 
+	/* top -> bot
+	 * | leftPaddle.Y-leftPaddle.Height/2 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 1
+	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 1 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 2
+	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 2 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 3
+	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 3 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 4
+	 * | leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 4 -> leftPaddle.Y-leftPaddle.Height/2 + (leftPaddle.Height/5) * 5
+	 */
 	if ball.X < leftPaddle.X+leftPaddle.Width/2 {
 		if ball.Y > leftPaddle.Y-leftPaddle.Height/2 && ball.Y < leftPaddle.Y+leftPaddle.Height/2 {
 			ball.XVel = -ball.XVel
 			ball.X = leftPaddle.X + leftPaddle.Width/2.0 + ball.Radius
+			switch y := ball.Y; {
+			case y <= leftPaddle.Y+leftPaddle.Height/2 && y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*1):
+				ball.YVel += 300
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*1) && y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*2):
+				ball.YVel += 150
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*2) && y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*3):
+				ball.YVel -= 0
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*3) && y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*4):
+				ball.YVel -= 150
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*4) && y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*5):
+				ball.YVel -= 300
+			default:
+				fmt.Println("Collision error, contact dev if you get this")
+			}
 		}
 	}
 
@@ -283,6 +318,7 @@ type paddle struct {
 	Height float32
 	Speed  float32
 	Score  int
+	Player int
 	Color  color
 }
 
@@ -301,11 +337,20 @@ func (paddle *paddle) draw(pixels []byte) {
 }
 
 func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
-	if keyState[sdl.SCANCODE_UP] != 0 {
-		paddle.Y -= paddle.Speed * elapsedTime
-	}
-	if keyState[sdl.SCANCODE_DOWN] != 0 {
-		paddle.Y += paddle.Speed * elapsedTime
+	if paddle.Player == 0 {
+		if keyState[sdl.SCANCODE_W] != 0 {
+			paddle.Y -= paddle.Speed * elapsedTime
+		}
+		if keyState[sdl.SCANCODE_S] != 0 {
+			paddle.Y += paddle.Speed * elapsedTime
+		}
+	} else {
+		if keyState[sdl.SCANCODE_UP] != 0 {
+			paddle.Y -= paddle.Speed * elapsedTime
+		}
+		if keyState[sdl.SCANCODE_DOWN] != 0 {
+			paddle.Y += paddle.Speed * elapsedTime
+		}
 	}
 }
 
@@ -314,6 +359,7 @@ func (paddle *paddle) aiUpdate(ball *ball, elapsedTime float32) {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 
 	// initialize the event checker
 	err := sdl.Init(sdl.INIT_EVERYTHING)
@@ -324,7 +370,7 @@ func main() {
 	defer sdl.Quit()
 
 	// create a window with name
-	window, err := sdl.CreateWindow("Pong", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
+	window, err := sdl.CreateWindow("GoPong", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
 		int32(winWidth), int32(winHeight), sdl.WINDOW_SHOWN)
 	if err != nil {
 		fmt.Println(err)
@@ -350,18 +396,32 @@ func main() {
 
 	pixels := make([]byte, winWidth*winHeight*4)
 
-	player1 := paddle{pos{50, 100}, 20, 100, 300, 0, color{255, 255, 255}}
-	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, 300, 0, color{255, 255, 255}}
-	ball := ball{getCenter(), 20, 400, 400, color{255, 255, 255}}
+	player1 := paddle{pos{50, 100}, 20, 100, 500, 0, 0, color{255, 255, 255}}
+	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, 500, 0, 1, color{255, 255, 255}}
+	ball := ball{getCenter(), 20, 0, 0, color{255, 255, 255}}
+	startDirectionX, startDirectionY := rand.Intn(2), rand.Intn(2)
+	if startDirectionX > 0 {
+		ball.XVel = -300
+	} else {
+		ball.XVel = 300
+	}
+	if startDirectionY > 0 {
+		ball.YVel = float32(rand.Intn(301))
+	} else {
+		ball.YVel = float32(rand.Intn(301)) * -1
+	}
 
 	keyState := sdl.GetKeyboardState()
 
+	var gameStart time.Time
 	var frameStart time.Time
 	var elapsedTime float32
+	var gameElapsed float32
+	var paused bool = false
 
 	// check for any events (mouse, keeb, etc) and close when quit event (hit x) is seen
 	for {
-		frameStart = time.Now()
+		frameStart, gameElapsed = time.Now(), float32(time.Since(gameStart).Seconds())
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
@@ -371,8 +431,18 @@ func main() {
 
 		if state == PLAY {
 			player1.update(keyState, elapsedTime)
-			player2.aiUpdate(&ball, elapsedTime)
+			player2.aiUpdate(&ball, elapsedTime) //ai player
+			// player2.update(keyState, elapsedTime) // human player
+			if ball.XVel > 0 {
+				ball.XVel += gameElapsed / 50
+			} else {
+				ball.XVel -= gameElapsed / 50
+			}
 			ball.update(&player1, &player2, elapsedTime)
+			if keyState[sdl.SCANCODE_ESCAPE] != 0 {
+				state = START
+				paused = true
+			}
 		} else if state == START {
 			drawSpace(getCenter(), color{255, 255, 255}, 5, pixels)
 			screenDraw(tex, renderer, frameStart, &elapsedTime, pixels)
@@ -380,6 +450,11 @@ func main() {
 				if player1.Score == 9 || player2.Score == 9 {
 					player1.Score = 0
 					player2.Score = 0
+				}
+				if !paused {
+					gameStart = time.Now()
+				} else {
+					paused = false
 				}
 				state = PLAY
 			}
@@ -392,5 +467,4 @@ func main() {
 
 		screenDraw(tex, renderer, frameStart, &elapsedTime, pixels)
 	}
-
 }
