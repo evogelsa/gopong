@@ -309,6 +309,20 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 		if ball.Y > rightPaddle.Y-rightPaddle.Height/2 && ball.Y < rightPaddle.Y+rightPaddle.Height/2 {
 			ball.XVel = -ball.XVel
 			ball.X = rightPaddle.X - rightPaddle.Width/2.0 - ball.Radius
+			switch y := ball.Y; {
+			case y <= rightPaddle.Y+rightPaddle.Height/2 && y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*1):
+				ball.YVel += 300
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*1) && y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*2):
+				ball.YVel += 150
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*2) && y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*3):
+				ball.YVel -= 0
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*3) && y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*4):
+				ball.YVel -= 150
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*4) && y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*5):
+				ball.YVel -= 300
+			default:
+				fmt.Println("Collision error, contact dev if you get this")
+			}
 		}
 	}
 }
@@ -432,8 +446,8 @@ func main() {
 
 		if state == PLAY {
 			player1.update(keyState, elapsedTime)
-			player2.aiUpdate(&ball, elapsedTime) //ai player
-			// player2.update(keyState, elapsedTime) // human player
+			// player2.aiUpdate(&ball, elapsedTime) //ai player
+			player2.update(keyState, elapsedTime) // human player
 			if ball.XVel > 0 {
 				ball.XVel += gameElapsed / 50
 			} else {
