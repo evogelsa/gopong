@@ -8,8 +8,8 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"math/rand"
+	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
