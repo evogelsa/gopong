@@ -3,7 +3,7 @@ package main
 /* TODO
  * ai more realistic
  * win screen
- * player select screen
+ * improve player select
  */
 
 import (
@@ -22,6 +22,14 @@ const (
 	START gameState = iota
 	PLAY
 	SELECT
+)
+
+type gameMode int
+
+const (
+	EASY gameMode = iota
+	HARD
+	PVP
 )
 
 var state = START
@@ -391,6 +399,30 @@ func (paddle *paddle) aiUpdate(ball *ball, diff int, elapsedTime float32) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
+	var mode gameMode
+	var validInput bool
+	for validInput == false {
+		fmt.Println("Select mode:")
+		fmt.Printf("\t(0) Player vs Easy Computer\n\t(1) Player vs Hard Computer\n\t(2) Player vs Player\n")
+		fmt.Printf("Enter selection (#): ")
+		_, err := fmt.Scanf("%d\n", &mode)
+		if err != nil {
+			fmt.Println("Unrecognized input. Please make a selection by entering the number of the option")
+		} else if mode < 0 || mode > 2 {
+			if mode == -1 {
+				fmt.Print("Entering ludicrous mode")
+				for i := 0; i < 6; i++ {
+					time.Sleep(400 * time.Millisecond)
+					fmt.Print(".")
+				}
+				fmt.Printf("\nJust kidding. ")
+			}
+			fmt.Printf("Please select an option on the menu\n")
+		} else {
+			validInput = true
+		}
+	}
+
 	// initialize the event checker
 	err := sdl.Init(sdl.INIT_EVERYTHING)
 	if err != nil {
@@ -461,10 +493,17 @@ func main() {
 
 		switch state {
 		case PLAY:
-			// player1.update(keyState, elapsedTime) // human player
-			// player2.update(keyState, elapsedTime) // human player
-			player1.aiUpdate(&ball, 2, elapsedTime) //ai player
-			player2.aiUpdate(&ball, 2, elapsedTime) //ai player
+			switch mode {
+			case EASY:
+				player1.update(keyState, elapsedTime)   // human player
+				player2.aiUpdate(&ball, 2, elapsedTime) //ai player
+			case HARD:
+				player1.update(keyState, elapsedTime)   // human player
+				player2.aiUpdate(&ball, 0, elapsedTime) //ai player
+			case PVP:
+				player1.update(keyState, elapsedTime) // human player
+				player2.update(keyState, elapsedTime) // human player
+			}
 			if ball.XVel > 0 {
 				ball.XVel += gameElapsed / 50
 			} else {
@@ -491,7 +530,11 @@ func main() {
 				state = PLAY
 			}
 		case SELECT:
-			//TODO
+			var mode int
+			fmt.Println("Select mode:")
+			fmt.Printf("\t(0) Player vs Easy Computer\n\t(1) Player vs Hard Computer\n\t(2)Player vs Player\n")
+			fmt.Println("Enter selection (#): ")
+			fmt.Scanln("%d", &mode)
 		}
 
 		clear(pixels)
