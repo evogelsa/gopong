@@ -468,17 +468,25 @@ func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
 	// muliply speed by elapsed time to preserve behavior during frame loss
 	if paddle.Player == 0 {
 		if keyState[sdl.SCANCODE_W] != 0 {
-			paddle.Y -= paddle.Speed * elapsedTime
+			if paddle.Y > 0.0-(paddle.Height/2)+paddle.Height/7 {
+				paddle.Y -= paddle.Speed * elapsedTime
+			}
 		}
 		if keyState[sdl.SCANCODE_S] != 0 {
-			paddle.Y += paddle.Speed * elapsedTime
+			if paddle.Y < float32(winHeight)+(paddle.Height/2)-paddle.Height/7 {
+				paddle.Y += paddle.Speed * elapsedTime
+			}
 		}
 	} else {
 		if keyState[sdl.SCANCODE_UP] != 0 || keyState[sdl.SCANCODE_I] != 0 {
-			paddle.Y -= paddle.Speed * elapsedTime
+			if paddle.Y > 0.0-(paddle.Height/2)+paddle.Height/7 {
+				paddle.Y -= paddle.Speed * elapsedTime
+			}
 		}
 		if keyState[sdl.SCANCODE_DOWN] != 0 || keyState[sdl.SCANCODE_K] != 0 {
-			paddle.Y += paddle.Speed * elapsedTime
+			if paddle.Y < float32(winHeight)+(paddle.Height/2)-paddle.Height/7 {
+				paddle.Y += paddle.Speed * elapsedTime
+			}
 		}
 	}
 }
