@@ -1,13 +1,14 @@
 package main
 
 /* TODO
- * ai more realistic
+ * continue ai improvements
  * win screen
  * improve player select
  */
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -30,9 +31,12 @@ const (
 type gameMode int
 
 const (
-	EASY gameMode = iota
+	IMPOSSIBLE gameMode = iota
+	EASY
+	MEDIUM
 	HARD
 	PVP
+	CVC
 )
 
 // game state starts on start screen
@@ -271,10 +275,11 @@ func lerp(a float32, b float32, percent float32) float32 {
 // ball struct stores information relevant to the pong ball
 type ball struct {
 	pos
-	Radius float32
-	XVel   float32
-	YVel   float32
-	Color  color
+	Radius     float32
+	XVel       float32
+	YVel       float32
+	Color      color
+	Collisions int
 }
 
 // draw is a method acting on ball type which draws the ball based on its stored information
@@ -311,6 +316,7 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 	if ball.X-ball.Radius < 0 {
 		rightPaddle.Score++
 		ball.XVel = -300
+		ball.Collisions = 0
 		if rand.Intn(2) > 0 {
 			ball.YVel = float32((rand.Intn(301)))
 		} else {
@@ -321,6 +327,7 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 	} else if ball.X+ball.Radius > float32(winWidth) {
 		leftPaddle.Score++
 		ball.XVel = 300
+		ball.Collisions = 0
 		if rand.Intn(2) > 0 {
 			ball.YVel = float32((rand.Intn(301)))
 		} else {
@@ -336,29 +343,44 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 		if ball.Y > leftPaddle.Y-leftPaddle.Height/2 && ball.Y < leftPaddle.Y+leftPaddle.Height/2 {
 			ball.XVel = -ball.XVel
 			ball.X = leftPaddle.X + leftPaddle.Width/2.0 + ball.Radius
-			// paddes are divided into 5 sections, check which section ball is colliding with and
-			// add velocity in y component
+			// paddes are divided into 7 sections, check which section ball is colliding with and
+			// add velocity in y component. math is done to always send ball at same angle based
+			// on where it collides 75-45-30-0
+			ball.Collisions++
+			if ball.Collisions == 4 {
+				ball.XVel *= 1.5
+			} else if ball.Collisions == 12 {
+				ball.XVel *= 1.5
+			}
 			switch y := ball.Y; {
 			// top most
-			case y <= leftPaddle.Y+leftPaddle.Height/2 &&
-				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*1):
-				ball.YVel += 300
+			case y-ball.Radius <= leftPaddle.Y+leftPaddle.Height/2 &&
+				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*1):
+				ball.YVel = float32(math.Atan(75)) * ball.XVel
 			// second to top
-			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*1) &&
-				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*2):
-				ball.YVel += 150
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*1) &&
+				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*2):
+				ball.YVel = float32(math.Atan(45)) * ball.XVel
+			// third to top
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*2) &&
+				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*3):
+				ball.YVel = float32(math.Atan(15)) * ball.XVel
 			// middle
-			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*2) &&
-				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*3):
-				ball.YVel -= 0
-			// second to bottom
-			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*3) &&
-				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*4):
-				ball.YVel -= 150
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*3) &&
+				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*4):
+				ball.YVel = 0
+			// third bottom
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*4) &&
+				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*5):
+				ball.YVel = float32(math.Atan(15)) * ball.XVel * -1
+			// second bottom
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*5) &&
+				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*6):
+				ball.YVel = float32(math.Atan(45)) * ball.XVel * -1
 			// bottom
-			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*4) &&
-				y >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/5)*5):
-				ball.YVel -= 300
+			case y <= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*6) &&
+				y+ball.Radius >= leftPaddle.Y+leftPaddle.Height/2-((leftPaddle.Height/7)*7):
+				ball.YVel = float32(math.Atan(75)) * ball.XVel * -1
 			// incase I did something wrong
 			default:
 				fmt.Println("Collision error, contact dev if you get this")
@@ -371,22 +393,38 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 		if ball.Y > rightPaddle.Y-rightPaddle.Height/2 && ball.Y < rightPaddle.Y+rightPaddle.Height/2 {
 			ball.XVel = -ball.XVel
 			ball.X = rightPaddle.X - rightPaddle.Width/2.0 - ball.Radius
+			ball.Collisions++
+			if ball.Collisions == 4 {
+				ball.XVel *= 1.5
+			} else if ball.Collisions == 12 {
+				ball.XVel *= 1.5
+			}
 			switch y := ball.Y; {
-			case y <= rightPaddle.Y+rightPaddle.Height/2 &&
-				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*1):
-				ball.YVel += 300
-			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*1) &&
-				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*2):
-				ball.YVel += 150
-			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*2) &&
-				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*3):
-				ball.YVel -= 0
-			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*3) &&
-				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*4):
-				ball.YVel -= 150
-			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*4) &&
-				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/5)*5):
-				ball.YVel -= 300
+			case y-ball.Radius <= rightPaddle.Y+rightPaddle.Height/2 &&
+				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*1):
+				ball.YVel = float32(math.Atan(75)) * ball.XVel * -1
+			// second to top
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*1) &&
+				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*2):
+				ball.YVel = float32(math.Atan(45)) * ball.XVel * -1
+			// middle
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*2) &&
+				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*3):
+				ball.YVel = float32(math.Atan(15)) * ball.XVel * -1
+			// second to bottom
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*3) &&
+				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*4):
+				ball.YVel = 0
+			// bottom
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*4) &&
+				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*5):
+				ball.YVel = float32(math.Atan(15)) * ball.XVel
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*5) &&
+				y >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*6):
+				ball.YVel = float32(math.Atan(45)) * ball.XVel
+			case y <= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*6) &&
+				y+ball.Radius >= rightPaddle.Y+rightPaddle.Height/2-((rightPaddle.Height/7)*7):
+				ball.YVel = float32(math.Atan(75)) * ball.XVel
 			default:
 				fmt.Println("Collision error, contact dev if you get this")
 			}
@@ -446,28 +484,54 @@ func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
 }
 
 // aiUpdate is a method acting on paddles which handles automated movement of paddles
-func (paddle *paddle) aiUpdate(ball *ball, diff int, elapsedTime float32) {
+func (paddle *paddle) aiUpdate(ball *ball, diff gameMode, elapsedTime float32) {
 	switch diff {
-	// "hard ai" -- only way to beat is to get ball to move fast enough it clips through paddle
-	case 0:
+	// "impossible ai" -- only way to beat is to get ball to move fast enough it clips through paddle
+	case IMPOSSIBLE:
 		paddle.Y = ball.Y
 	// ai paddle moves at paddle speed but keeps ball centered
-	case 1:
-		if paddle.Y < ball.Y {
-			paddle.Y += paddle.Speed * elapsedTime
-		} else if paddle.Y > ball.Y {
-			paddle.Y -= paddle.Speed * elapsedTime
+	// not actually sure if medium or hard is harder
+	case HARD:
+		center := getCenter()
+		// right paddle && ball moving to the left, go to center
+		if paddle.X > center.X && ball.XVel < 0 {
+			if paddle.Y < center.Y {
+				paddle.Y += paddle.Speed * elapsedTime
+			} else if paddle.Y > center.Y {
+				paddle.Y -= paddle.Speed * elapsedTime
+			}
+			// right paddle && ball moving to right, follow ball
+		} else if paddle.X > center.X && ball.XVel > 0 {
+			if paddle.Y < ball.Y-ball.Radius {
+				paddle.Y += paddle.Speed * elapsedTime * 1.3
+			} else if paddle.Y > ball.Y+ball.Radius {
+				paddle.Y -= paddle.Speed * elapsedTime * 1.3
+			}
+			// left paddle && ball moving to right, go to center
+		} else if paddle.X < center.X && ball.XVel > 0 {
+			if paddle.Y < center.Y {
+				paddle.Y += paddle.Speed * elapsedTime
+			} else if paddle.Y > center.Y {
+				paddle.Y -= paddle.Speed * elapsedTime
+			}
+			// left paddle && ball moving to left, follow ball
+		} else if paddle.X < center.X && ball.XVel < 0 {
+			if paddle.Y < ball.Y-ball.Radius {
+				paddle.Y += paddle.Speed * elapsedTime * 1.3
+			} else if paddle.Y > ball.Y+ball.Radius {
+				paddle.Y -= paddle.Speed * elapsedTime * 1.3
+			}
 		}
-	// "easy ai" -- ai paddle moves at paddle speed but has some error given by ball radius
+	// "medium ai" -- ai paddle moves at paddle speed but has some error given by ball radius
 	// when keeping ball centered on the paddle
-	case 2:
+	case MEDIUM:
 		if paddle.Y < ball.Y-ball.Radius {
 			paddle.Y += paddle.Speed * elapsedTime
 		} else if paddle.Y > ball.Y+ball.Radius {
 			paddle.Y -= paddle.Speed * elapsedTime
 		}
 	// make the ai player slower for really easy games
-	case 3:
+	case EASY:
 		if paddle.Y < ball.Y-ball.Radius {
 			paddle.Y += paddle.Speed / 1.5 * elapsedTime
 		} else if paddle.Y > ball.Y+ball.Radius {
@@ -489,12 +553,14 @@ func main() {
 	var validInput bool
 	for validInput == false {
 		fmt.Println("Select mode:")
-		fmt.Printf("\t(0) Player vs Easy Computer\n\t(1) Player vs Hard Computer\n\t(2) Player vs Player\n")
+		fmt.Printf("\t(0) Player vs Impossible Computer\n")
+		fmt.Printf("\t(1) Player vs Easy Computer\n\t(2) Player vs Medium Computer\n\t(3) Player vs Hard Computer\n")
+		fmt.Printf("\t(4) Player vs Player\n\t(5) Computer vs Computer\n")
 		fmt.Printf("Enter selection (#): ")
 		_, err := fmt.Scanf("%d\n", &mode)
 		if err != nil {
 			fmt.Println("Unrecognized input. Please make a selection by entering the number of the option")
-		} else if mode < 0 || mode > 2 {
+		} else if mode < 0 || mode > 5 {
 			// not an easter egg
 			if mode == -1 {
 				fmt.Print("Entering ludicrous mode")
@@ -551,7 +617,7 @@ func main() {
 	player1 := paddle{pos{50, 100}, 20, 100, 500, 0, 0, color{255, 255, 255}}
 	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, 500, 0, 1, color{255, 255, 255}}
 	// create ball
-	ball := ball{getCenter(), 20, 0, 0, color{255, 255, 255}}
+	ball := ball{getCenter(), 20, 0, 0, color{255, 255, 255}, 0}
 	// initialize the balls starting direction and velocity
 	startDirectionX, startDirectionY := rand.Intn(2), rand.Intn(2)
 	if startDirectionX > 0 {
@@ -568,15 +634,13 @@ func main() {
 	// create keyState which checks for keypresses
 	keyState := sdl.GetKeyboardState()
 
-	var gameStart time.Time
 	var frameStart time.Time
 	var elapsedTime float32
-	var gameElapsed float32
 	var paused bool = false
 
 	// check for any events (mouse, keeb, etc) and close when quit event (hit x) is seen
 	for {
-		frameStart, gameElapsed = time.Now(), float32(time.Since(gameStart).Seconds())
+		frameStart = time.Now()
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
@@ -589,21 +653,24 @@ func main() {
 		case PLAY:
 			// handle case for initial select screen
 			switch mode {
+			case IMPOSSIBLE:
+				player1.update(keyState, elapsedTime)      // human player
+				player2.aiUpdate(&ball, mode, elapsedTime) //ai player
 			case EASY:
-				player1.update(keyState, elapsedTime)   // human player
-				player2.aiUpdate(&ball, 2, elapsedTime) //ai player
+				player1.update(keyState, elapsedTime)      // human player
+				player2.aiUpdate(&ball, mode, elapsedTime) //ai player
+			case MEDIUM:
+				player1.update(keyState, elapsedTime)      // human player
+				player2.aiUpdate(&ball, mode, elapsedTime) //ai player
 			case HARD:
-				player1.update(keyState, elapsedTime)   // human player
-				player2.aiUpdate(&ball, 0, elapsedTime) //ai player
+				player1.update(keyState, elapsedTime)      // human player
+				player2.aiUpdate(&ball, mode, elapsedTime) //ai player
 			case PVP:
 				player1.update(keyState, elapsedTime) // human player
 				player2.update(keyState, elapsedTime) // human player
-			}
-			// slowly progress balls xvelocity as match duration grows
-			if ball.XVel > 0 {
-				ball.XVel += gameElapsed / 50
-			} else {
-				ball.XVel -= gameElapsed / 50
+			case CVC:
+				player1.aiUpdate(&ball, HARD, elapsedTime) //ai player
+				player2.aiUpdate(&ball, HARD, elapsedTime) //ai player
 			}
 			// update ball position (checks for collisions)
 			ball.update(&player1, &player2, elapsedTime)
@@ -623,9 +690,7 @@ func main() {
 					player2.Score = 0
 				}
 				// start game timer if fresh match, otherwise gametimer is paused
-				if !paused {
-					gameStart = time.Now()
-				} else {
+				if paused {
 					paused = false
 				}
 				state = PLAY
