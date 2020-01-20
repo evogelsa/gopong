@@ -315,6 +315,8 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 	// add to corresponding players score and reset ball location and game state
 	if ball.X-ball.Radius < 0 {
 		rightPaddle.Score++
+		rightPaddle.Y = getCenter().Y
+		leftPaddle.Y = getCenter().Y
 		ball.XVel = -300
 		ball.Collisions = 0
 		if rand.Intn(2) > 0 {
@@ -326,6 +328,8 @@ func (ball *ball) update(leftPaddle *paddle, rightPaddle *paddle, elapsedTime fl
 		state = START
 	} else if ball.X+ball.Radius > float32(winWidth) {
 		leftPaddle.Score++
+		rightPaddle.Y = getCenter().Y
+		leftPaddle.Y = getCenter().Y
 		ball.XVel = 300
 		ball.Collisions = 0
 		if rand.Intn(2) > 0 {
@@ -645,6 +649,9 @@ func main() {
 	var frameStart time.Time
 	var elapsedTime float32
 	var paused bool = false
+
+	player1.Y = getCenter().Y
+	player2.Y = getCenter().Y
 
 	// check for any events (mouse, keeb, etc) and close when quit event (hit x) is seen
 	for {

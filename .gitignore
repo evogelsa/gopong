@@ -3,3 +3,5 @@
 *.swp
 *.exe
 tags
+bin/
+Makefile
