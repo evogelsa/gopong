@@ -2,6 +2,7 @@
 *.tar*
 *.swp
 *.exe
+*.dll
 tags
 bin/
 Makefile

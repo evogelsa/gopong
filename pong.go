@@ -177,7 +177,6 @@ func setPixel(x int, y int, c color, pixels []byte) {
 		pixels[index+1] = c.G
 		pixels[index+2] = c.B
 	}
-
 }
 
 // getCenter returns the position of the center pixel based on the winWidth and winHeight
